@@ -62,6 +62,8 @@ use crate::syscfg::SysCfg;
 mod alt;
 pub(crate) use alt::{Const, PinA, SetAlternate};
 mod convert;
+pub mod outport;
+
 use convert::PinMode;
 mod partially_erased;
 pub use partially_erased::{PEPin, PartiallyErasedPin};
