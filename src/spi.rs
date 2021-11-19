@@ -33,6 +33,7 @@ pub struct Mode {
 }
 
 mod hal_02;
+mod hal_1;
 
 use crate::pac::{spi1, RCC, SPI1, SPI2};
 use crate::rcc;
