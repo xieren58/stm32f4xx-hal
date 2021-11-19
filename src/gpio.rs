@@ -70,6 +70,7 @@ pub use erased::{EPin, ErasedPin};
 mod dynamic;
 pub use dynamic::{Dynamic, DynamicPin};
 mod hal_02;
+mod hal_1;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PinState {
