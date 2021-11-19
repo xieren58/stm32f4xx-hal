@@ -7,6 +7,7 @@ use crate::rcc::{Enable, Reset};
 use crate::time::{Hertz, U32Ext};
 
 mod hal_02;
+mod hal_1;
 
 /// I2C FastMode+ abstraction
 pub struct FMPI2c<I2C, PINS> {

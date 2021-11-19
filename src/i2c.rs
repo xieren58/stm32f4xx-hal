@@ -18,6 +18,7 @@ use crate::rcc::Clocks;
 use crate::time::{Hertz, U32Ext};
 
 mod hal_02;
+mod hal_1;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum DutyCycle {
