@@ -1,5 +1,5 @@
 use super::{Alternate, Gpio, NoPin, OpenDrain, Pin, PinMode, PushPull};
-use crate::{gpio, i2c, i2s, pac, serial, spi};
+use crate::{gpio, i2c, i2s, pac, sdio, serial, spi};
 
 pub struct Const<const A: u8>;
 
@@ -685,4 +685,38 @@ pin! {
 
     <serial::TxPin, UART10> for [PE3<11>, PG12<11>],
     <serial::RxPin, UART10> for [PE2<11>, PG11<11>]
+}
+
+#[cfg(feature = "sdio")]
+pin! {
+    <sdio::Clk, SDIO> for [PC12<12>],
+    <sdio::Cmd, SDIO> for [PD2<12>],
+    <sdio::D0, SDIO> for [PC8<12>],
+    <sdio::D1, SDIO> for [PC9<12>],
+    <sdio::D2, SDIO> for [PC10<12>],
+    <sdio::D3, SDIO> for [PC11<12>]
+}
+
+#[cfg(any(
+    feature = "stm32f411",
+    feature = "stm32f412",
+    feature = "stm32f413",
+    feature = "stm32f423"
+))]
+pin! {
+    <sdio::Clk, SDIO> for [PB15<12>],
+    <sdio::Cmd, SDIO> for [PA6<12>],
+    <sdio::D0, SDIO> for [PB4<12>],
+    <sdio::D1, SDIO> for [PA8<12>],
+    <sdio::D2, SDIO> for [PA9<12>],
+    <sdio::D3, SDIO> for [PB5<12>]
+}
+#[cfg(any(feature = "stm32f412", feature = "stm32f413", feature = "stm32f423"))]
+pin! {
+    <sdio::D0, SDIO> for [PB6<12>]
+}
+
+#[cfg(feature = "stm32f411")]
+pin! {
+    <sdio::D0, SDIO> for [PB7<12>]
 }

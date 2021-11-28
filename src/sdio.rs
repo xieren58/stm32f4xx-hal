@@ -1,117 +1,88 @@
 //! Sdio host
 
-use crate::gpio::{self, Alternate, PushPull};
+use crate::gpio::{Const, PinA, PushPull, SetAlternate};
 use crate::pac::{self, RCC, SDIO};
 use crate::rcc::{Clocks, Enable, Reset};
 #[allow(unused_imports)]
 use crate::time::Hertz;
 pub use sdio_host::{
-    cmd, cmd::ResponseLen, CardCapacity, CardStatus, Cmd, CurrentState, SDStatus, CIC, CID, CSD,
-    OCR, RCA, SCR,
+    cmd, cmd::ResponseLen, CardCapacity, CardStatus, CurrentState, SDStatus, CIC, CID, CSD, OCR,
+    RCA, SCR,
 };
 
-pub trait PinClk {}
-pub trait PinCmd {}
-pub trait PinD0 {}
-pub trait PinD1 {}
-pub trait PinD2 {}
-pub trait PinD3 {}
+pub struct Clk {}
+pub struct Cmd {}
+pub struct D0 {}
+pub struct D1 {}
+pub struct D2 {}
+pub struct D3 {}
 
 pub trait Pins {
     const BUSWIDTH: Buswidth;
+
+    fn set_alt_mode(&mut self);
+    fn restore_mode(&mut self);
 }
 
-impl<CLK, CMD, D0, D1, D2, D3> Pins for (CLK, CMD, D0, D1, D2, D3)
+impl<
+        CLK,
+        CMD,
+        PD0,
+        PD1,
+        PD2,
+        PD3,
+        const CLKA: u8,
+        const CMDA: u8,
+        const D0A: u8,
+        const D1A: u8,
+        const D2A: u8,
+        const D3A: u8,
+    > Pins for (CLK, CMD, PD0, PD1, PD2, PD3)
 where
-    CLK: PinClk,
-    CMD: PinCmd,
-    D0: PinD0,
-    D1: PinD1,
-    D2: PinD2,
-    D3: PinD3,
+    CLK: PinA<Clk, SDIO, A = Const<CLKA>> + SetAlternate<PushPull, CLKA>,
+    CMD: PinA<Cmd, SDIO, A = Const<CMDA>> + SetAlternate<PushPull, CMDA>,
+    PD0: PinA<D0, SDIO, A = Const<D0A>> + SetAlternate<PushPull, D0A>,
+    PD1: PinA<D1, SDIO, A = Const<D1A>> + SetAlternate<PushPull, D1A>,
+    PD2: PinA<D2, SDIO, A = Const<D2A>> + SetAlternate<PushPull, D2A>,
+    PD3: PinA<D3, SDIO, A = Const<D3A>> + SetAlternate<PushPull, D3A>,
 {
     const BUSWIDTH: Buswidth = Buswidth::Buswidth4;
-}
 
-impl<CLK, CMD, D0> Pins for (CLK, CMD, D0)
-where
-    CLK: PinClk,
-    CMD: PinCmd,
-    D0: PinD0,
-{
-    const BUSWIDTH: Buswidth = Buswidth::Buswidth1;
-}
-
-macro_rules! pins {
-    ($(CLK: [$($CLK:ty),*] CMD: [$($CMD:ty),*] D0: [$($D0:ty),*] D1: [$($D1:ty),*] D2: [$($D2:ty),*] D3: [$($D3:ty),*])+) => {
-        $(
-            $(
-                impl PinClk for $CLK {}
-            )*
-            $(
-                impl PinCmd for $CMD {}
-            )*
-            $(
-                impl PinD0 for $D0 {}
-            )*
-            $(
-                impl PinD1 for $D1 {}
-            )*
-            $(
-                impl PinD2 for $D2 {}
-            )*
-            $(
-                impl PinD3 for $D3 {}
-            )*
-        )+
+    fn set_alt_mode(&mut self) {
+        self.0.set_alt_mode();
+        self.1.set_alt_mode();
+        self.2.set_alt_mode();
+        self.3.set_alt_mode();
+        self.4.set_alt_mode();
+        self.5.set_alt_mode();
+    }
+    fn restore_mode(&mut self) {
+        self.0.restore_mode();
+        self.1.restore_mode();
+        self.2.restore_mode();
+        self.3.restore_mode();
+        self.4.restore_mode();
+        self.5.restore_mode();
     }
 }
 
-#[cfg(any(
-    feature = "stm32f401",
-    feature = "stm32f405",
-    feature = "stm32f407",
-    feature = "stm32f411",
-    feature = "stm32f412",
-    feature = "stm32f413",
-    feature = "stm32f415",
-    feature = "stm32f417",
-    feature = "stm32f423",
-    feature = "stm32f427",
-    feature = "stm32f429",
-    feature = "stm32f437",
-    feature = "stm32f439",
-    feature = "stm32f446",
-    feature = "stm32f469",
-    feature = "stm32f479"
-))]
-pins! {
-    CLK: [gpio::PC12<Alternate<PushPull, 12>>]
-    CMD: [gpio::PD2<Alternate<PushPull, 12>>]
-    D0: [gpio::PC8<Alternate<PushPull, 12>>]
-    D1: [gpio::PC9<Alternate<PushPull, 12>>]
-    D2: [gpio::PC10<Alternate<PushPull, 12>>]
-    D3: [gpio::PC11<Alternate<PushPull, 12>>]
-}
-
-#[cfg(any(feature = "stm32f412", feature = "stm32f413", feature = "stm32f423"))]
-pins! {
-    CLK: [gpio::PB15<Alternate<PushPull, 12>>]
-    CMD: [gpio::PA6<Alternate<PushPull, 12>>]
-    D0: [gpio::PB4<Alternate<PushPull, 12>>, gpio::PB6<Alternate<PushPull, 12>>]
-    D1: [gpio::PA8<Alternate<PushPull, 12>>]
-    D2: [gpio::PA9<Alternate<PushPull, 12>>]
-    D3: [gpio::PB5<Alternate<PushPull, 12>>]
-}
-
-#[cfg(feature = "stm32f411")]
-pins! {
-    CLK: [gpio::PB15<Alternate<PushPull, 12>>]
-    CMD: [gpio::PA6<Alternate<PushPull, 12>>]
-    D0: [gpio::PB4<Alternate<PushPull, 12>>, gpio::PB7<Alternate<PushPull, 12>>]
-    D1: [gpio::PA8<Alternate<PushPull, 12>>]
-    D2: [gpio::PA9<Alternate<PushPull, 12>>]
-    D3: [gpio::PB5<Alternate<PushPull, 12>>]
+impl<CLK, CMD, PD0, const CLKA: u8, const CMDA: u8, const D0A: u8> Pins for (CLK, CMD, PD0)
+where
+    CLK: PinA<Clk, SDIO, A = Const<CLKA>> + SetAlternate<PushPull, CLKA>,
+    CMD: PinA<Cmd, SDIO, A = Const<CMDA>> + SetAlternate<PushPull, CMDA>,
+    PD0: PinA<D0, SDIO, A = Const<D0A>> + SetAlternate<PushPull, D0A>,
+{
+    const BUSWIDTH: Buswidth = Buswidth::Buswidth1;
+    fn set_alt_mode(&mut self) {
+        self.0.set_alt_mode();
+        self.1.set_alt_mode();
+        self.2.set_alt_mode();
+    }
+    fn restore_mode(&mut self) {
+        self.0.restore_mode();
+        self.1.restore_mode();
+        self.2.restore_mode();
+    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -165,7 +136,7 @@ pub struct Card {
 
 impl Sdio {
     /// Create and enable the Sdio device
-    pub fn new<PINS: Pins>(sdio: SDIO, _pins: PINS, clocks: &Clocks) -> Self {
+    pub fn new<PINS: Pins>(sdio: SDIO, mut pins: PINS, clocks: &Clocks) -> Self {
         unsafe {
             //NOTE(unsafe) this reference will only be used for atomic writes with no side effects
             let rcc = &*RCC::ptr();
@@ -173,6 +144,8 @@ impl Sdio {
             SDIO::enable(rcc);
             SDIO::reset(rcc);
         }
+
+        pins.set_alt_mode();
 
         // Configure clock
         sdio.clkcr.write(|w| {
@@ -566,14 +539,14 @@ impl Sdio {
         Ok(())
     }
 
-    fn app_cmd<R: cmd::Resp>(&self, acmd: Cmd<R>) -> Result<(), Error> {
+    fn app_cmd<R: cmd::Resp>(&self, acmd: sdio_host::Cmd<R>) -> Result<(), Error> {
         let rca = self.card().map(|card| card.rca.address()).unwrap_or(0);
         self.cmd(cmd::app_cmd(rca))?;
         self.cmd(acmd)
     }
 
     /// Send command to card
-    fn cmd<R: cmd::Resp>(&self, cmd: Cmd<R>) -> Result<(), Error> {
+    fn cmd<R: cmd::Resp>(&self, cmd: sdio_host::Cmd<R>) -> Result<(), Error> {
         use crate::pac::sdio::cmd::WAITRESP_A;
 
         // Command state machines must be idle
