@@ -1,7 +1,6 @@
 use core::ops::Deref;
 
-use crate::gpio::{Const, OpenDrain, PinA, SetAlternate};
-use crate::i2c::{Error, Scl, Sda};
+use crate::i2c::{Error, Pins};
 use crate::pac::{fmpi2c1, FMPI2C1, RCC};
 use crate::rcc::{Enable, Reset};
 use crate::time::{Hertz, U32Ext};
@@ -66,12 +65,11 @@ where
     }
 }
 
-impl<SCL, SDA, const SCLA: u8, const SDAA: u8> FMPI2c<FMPI2C1, (SCL, SDA)>
+impl<PINS> FMPI2c<FMPI2C1, PINS>
 where
-    SCL: PinA<Scl, FMPI2C1, A = Const<SCLA>> + SetAlternate<OpenDrain, SCLA>,
-    SDA: PinA<Sda, FMPI2C1, A = Const<SDAA>> + SetAlternate<OpenDrain, SDAA>,
+    PINS: Pins<FMPI2C1>,
 {
-    pub fn new<M: Into<FmpMode>>(i2c: FMPI2C1, mut pins: (SCL, SDA), mode: M) -> Self {
+    pub fn new<M: Into<FmpMode>>(i2c: FMPI2C1, mut pins: PINS, mode: M) -> Self {
         unsafe {
             // NOTE(unsafe) this reference will only be used for atomic writes with no side effects.
             let rcc = &(*RCC::ptr());
@@ -83,17 +81,15 @@ where
             rcc.dckcfgr2.modify(|_, w| w.fmpi2c1sel().hsi());
         }
 
-        pins.0.set_alt_mode();
-        pins.1.set_alt_mode();
+        pins.set_alt_mode();
 
         let i2c = FMPI2c { i2c, pins };
         i2c.i2c_init(mode);
         i2c
     }
 
-    pub fn release(mut self) -> (FMPI2C1, (SCL, SDA)) {
-        self.pins.0.restore_mode();
-        self.pins.1.restore_mode();
+    pub fn release(mut self) -> (FMPI2C1, PINS) {
+        self.pins.restore_mode();
 
         (self.i2c, self.pins)
     }
@@ -180,21 +176,24 @@ where
         // Wait until we're ready for sending
         while {
             let isr = self.i2c.isr.read();
-            self.check_and_clear_error_flags(&isr)?;
+            self.check_and_clear_error_flags(&isr)
+                .map_err(Error::nack_addr)?;
             isr.txis().bit_is_clear()
         } {}
 
         // Push out a byte of data
         self.i2c.txdr.write(|w| unsafe { w.bits(u32::from(byte)) });
 
-        self.check_and_clear_error_flags(&self.i2c.isr.read())?;
+        self.check_and_clear_error_flags(&self.i2c.isr.read())
+            .map_err(Error::nack_data)?;
         Ok(())
     }
 
     fn recv_byte(&self) -> Result<u8, Error> {
         while {
             let isr = self.i2c.isr.read();
-            self.check_and_clear_error_flags(&isr)?;
+            self.check_and_clear_error_flags(&isr)
+                .map_err(Error::nack_data)?;
             isr.rxne().bit_is_clear()
         } {}
 

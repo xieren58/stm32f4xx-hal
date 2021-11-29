@@ -28,7 +28,8 @@ mod blocking {
             // Wait until the transmit buffer is empty and there hasn't been any error condition
             while {
                 let isr = self.i2c.isr.read();
-                self.check_and_clear_error_flags(&isr)?;
+                self.check_and_clear_error_flags(&isr)
+                    .map_err(Error::nack_addr)?;
                 isr.txis().bit_is_clear() && isr.tc().bit_is_clear()
             } {}
 
@@ -40,7 +41,8 @@ mod blocking {
             // Wait until data was sent
             while {
                 let isr = self.i2c.isr.read();
-                self.check_and_clear_error_flags(&isr)?;
+                self.check_and_clear_error_flags(&isr)
+                    .map_err(Error::nack_data)?;
                 isr.tc().bit_is_clear()
             } {}
 
@@ -66,7 +68,8 @@ mod blocking {
             }
 
             // Check and clear flags if they somehow ended up set
-            self.check_and_clear_error_flags(&self.i2c.isr.read())?;
+            self.check_and_clear_error_flags(&self.i2c.isr.read())
+                .map_err(Error::nack_data)?;
 
             Ok(())
         }
@@ -101,7 +104,8 @@ mod blocking {
             }
 
             // Check and clear flags if they somehow ended up set
-            self.check_and_clear_error_flags(&self.i2c.isr.read())?;
+            self.check_and_clear_error_flags(&self.i2c.isr.read())
+                .map_err(Error::nack_data)?;
 
             Ok(())
         }
@@ -135,7 +139,8 @@ mod blocking {
             }
 
             // Check and clear flags if they somehow ended up set
-            self.check_and_clear_error_flags(&self.i2c.isr.read())?;
+            self.check_and_clear_error_flags(&self.i2c.isr.read())
+                .map_err(Error::nack_data)?;
 
             Ok(())
         }

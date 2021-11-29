@@ -6,6 +6,8 @@ impl Error for super::Error {
             Self::OVERRUN => ErrorKind::Overrun,
             Self::BUS => ErrorKind::Bus,
             Self::ARBITRATION => ErrorKind::ArbitrationLoss,
+            Self::NACK_ADDR => ErrorKind::NoAcknowledge(NoAcknowledgeSource::Address),
+            Self::NACK_DATA => ErrorKind::NoAcknowledge(NoAcknowledgeSource::Data),
             Self::NACK => ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown),
             Self::CRC | Self::TIMEOUT => ErrorKind::Other,
         }
@@ -129,7 +131,8 @@ mod blocking {
 
                 // Wait until address was sent
                 loop {
-                    self.check_and_clear_error_flags()?;
+                    self.check_and_clear_error_flags()
+                        .map_err(Error::nack_addr)?;
                     if self.i2c.sr1.read().addr().bit_is_set() {
                         break;
                     }
