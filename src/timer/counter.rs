@@ -145,6 +145,9 @@ impl<TIM, const FREQ: u32> Counter<TIM, FREQ>
 where
     TIM: General,
 {
+    pub const SAMPLING_TIME: TimerDurationU32<FREQ> = TimerDurationU32::from_ticks(1);
+    pub const MAX_TIME: TimerDurationU32<FREQ> = TimerDurationU32::from_ticks(TIM::MAX_ARR);
+
     fn new(mut tim: TIM, clk: Hertz) -> Self {
         let psc = clk.0 / FREQ - 1;
         tim.set_prescaler(u16(psc).unwrap());

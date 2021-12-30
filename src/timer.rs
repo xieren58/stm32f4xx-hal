@@ -194,6 +194,7 @@ impl Instant {
 mod sealed {
     pub trait General {
         type Width: Into<u32>;
+        const MAX_ARR: u32;
         fn enable_counter(&mut self);
         fn disable_counter(&mut self);
         fn is_counter_enabled(&self) -> bool;
@@ -243,6 +244,7 @@ macro_rules! hal {
 
             impl General for $TIM {
                 type Width = $bits;
+                const MAX_ARR: u32 = <$bits>::MAX as u32;
 
                 #[inline(always)]
                 fn enable_counter(&mut self) {
@@ -266,7 +268,7 @@ macro_rules! hal {
                 }
                 #[inline(always)]
                 fn set_auto_reload(&mut self, arr: u32) -> Result<(), Error> {
-                    if arr > 0 && arr <= <$bits>::MAX as u32 {
+                    if arr > 0 && arr <= Self::MAX_ARR {
                         Ok(self.arr.write(|w| unsafe { w.bits(arr) }))
                     } else {
                         Err(Error::WrongAutoReload)
