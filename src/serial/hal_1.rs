@@ -1,4 +1,4 @@
-use embedded_hal_one::serial::{Error, ErrorKind};
+use embedded_hal_one::serial::{Error, ErrorKind, ErrorType};
 
 impl Error for super::Error {
     fn kind(&self) -> ErrorKind {
@@ -11,17 +11,30 @@ impl Error for super::Error {
     }
 }
 
+impl<USART, PINS, WORD> ErrorType for super::Serial<USART, PINS, WORD> {
+    type Error = super::Error;
+}
+
+impl<USART, WORD> ErrorType for super::Rx<USART, WORD> {
+    type Error = super::Error;
+}
+
+impl<USART, WORD> ErrorType for super::Tx<USART, WORD> {
+    type Error = super::Error;
+}
+
 mod nb {
     use super::super::{Error, Instance, Rx, Serial, Tx};
-    use embedded_hal_one::serial::nb::{Read, Write};
+    use embedded_hal_one::serial::{
+        nb::{Read, Write},
+        ErrorType,
+    };
 
-    impl<USART, PINS, WORD> Read<WORD> for Serial<USART, PINS, WORD>
+    impl<USART, PINS, WORD: Copy> Read<WORD> for Serial<USART, PINS, WORD>
     where
         USART: Instance,
-        Rx<USART, WORD>: Read<WORD, Error = Error>,
+        Rx<USART, WORD>: Read<WORD> + ErrorType<Error = Error>,
     {
-        type Error = Error;
-
         fn read(&mut self) -> nb::Result<WORD, Error> {
             self.rx.read()
         }
@@ -31,8 +44,6 @@ mod nb {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn read(&mut self) -> nb::Result<u8, Self::Error> {
             // Delegate to the Read<u16> implementation, then truncate to 8 bits
             Rx::<USART, u16>::new().read().map(|word16| word16 as u8)
@@ -48,8 +59,6 @@ mod nb {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn read(&mut self) -> nb::Result<u16, Error> {
             // NOTE(unsafe) atomic read with no side effects
             let sr = unsafe { (*USART::ptr()).sr.read() };
@@ -80,13 +89,11 @@ mod nb {
         }
     }
 
-    impl<USART, PINS, WORD> Write<WORD> for Serial<USART, PINS, WORD>
+    impl<USART, PINS, WORD: Copy> Write<WORD> for Serial<USART, PINS, WORD>
     where
         USART: Instance,
-        Tx<USART, WORD>: Write<WORD, Error = Error>,
+        Tx<USART, WORD>: Write<WORD> + ErrorType<Error = Error>,
     {
-        type Error = Error;
-
         fn flush(&mut self) -> nb::Result<(), Self::Error> {
             self.tx.flush()
         }
@@ -100,8 +107,6 @@ mod nb {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn write(&mut self, word: u8) -> nb::Result<(), Self::Error> {
             // Delegate to u16 version
             Tx::<USART, u16>::new().write(u16::from(word))
@@ -122,8 +127,6 @@ mod nb {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn write(&mut self, word: u16) -> nb::Result<(), Self::Error> {
             // NOTE(unsafe) atomic read with no side effects
             let sr = unsafe { (*USART::ptr()).sr.read() };
@@ -151,15 +154,13 @@ mod nb {
 }
 
 mod blocking {
-    use super::super::{Error, Instance, Serial, Tx};
+    use super::super::{Instance, Serial, Tx};
     use embedded_hal_one::serial::{self, blocking::Write};
 
     impl<USART> Write<u8> for Tx<USART, u8>
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
             for &b in bytes {
                 loop {
@@ -188,8 +189,6 @@ mod blocking {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn write(&mut self, bytes: &[u8]) -> Result<(), Self::Error> {
             self.tx.write(bytes)
         }
@@ -203,8 +202,6 @@ mod blocking {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn write(&mut self, buffer: &[u16]) -> Result<(), Self::Error> {
             for &b in buffer {
                 loop {
@@ -233,8 +230,6 @@ mod blocking {
     where
         USART: Instance,
     {
-        type Error = Error;
-
         fn write(&mut self, bytes: &[u16]) -> Result<(), Self::Error> {
             self.tx.write(bytes)
         }

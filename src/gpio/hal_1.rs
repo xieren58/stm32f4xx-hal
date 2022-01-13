@@ -5,10 +5,11 @@ use super::{
     PushPull,
 };
 
-use embedded_hal_one::digital::blocking::{
-    InputPin, IoPin, OutputPin, StatefulOutputPin, ToggleableOutputPin,
-};
 pub use embedded_hal_one::digital::PinState;
+use embedded_hal_one::digital::{
+    blocking::{InputPin, IoPin, OutputPin, StatefulOutputPin, ToggleableOutputPin},
+    ErrorType,
+};
 
 impl From<PinState> for super::PinState {
     fn from(state: PinState) -> Self {
@@ -20,10 +21,11 @@ impl From<PinState> for super::PinState {
 }
 
 // Implementations for `Pin`
+impl<MODE, const P: char, const N: u8> ErrorType for Pin<MODE, P, N> {
+    type Error = Infallible;
+}
 
 impl<MODE, const P: char, const N: u8> OutputPin for Pin<Output<MODE>, P, N> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn set_high(&mut self) -> Result<(), Self::Error> {
         self.set_high();
@@ -50,8 +52,6 @@ impl<MODE, const P: char, const N: u8> StatefulOutputPin for Pin<Output<MODE>, P
 }
 
 impl<MODE, const P: char, const N: u8> ToggleableOutputPin for Pin<Output<MODE>, P, N> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
@@ -60,8 +60,6 @@ impl<MODE, const P: char, const N: u8> ToggleableOutputPin for Pin<Output<MODE>,
 }
 
 impl<const P: char, const N: u8> InputPin for Pin<Output<OpenDrain>, P, N> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -74,8 +72,6 @@ impl<const P: char, const N: u8> InputPin for Pin<Output<OpenDrain>, P, N> {
 }
 
 impl<MODE, const P: char, const N: u8> InputPin for Pin<Input<MODE>, P, N> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -199,10 +195,11 @@ impl<const P: char, const N: u8> IoPin<Self, Pin<Output<PushPull>, P, N>>
 }
 
 // Implementations for `ErasedPin`
+impl<MODE> ErrorType for ErasedPin<MODE> {
+    type Error = core::convert::Infallible;
+}
 
 impl<MODE> OutputPin for ErasedPin<Output<MODE>> {
-    type Error = core::convert::Infallible;
-
     #[inline(always)]
     fn set_high(&mut self) -> Result<(), Self::Error> {
         self.set_high();
@@ -229,8 +226,6 @@ impl<MODE> StatefulOutputPin for ErasedPin<Output<MODE>> {
 }
 
 impl<MODE> ToggleableOutputPin for ErasedPin<Output<MODE>> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
@@ -239,8 +234,6 @@ impl<MODE> ToggleableOutputPin for ErasedPin<Output<MODE>> {
 }
 
 impl InputPin for ErasedPin<Output<OpenDrain>> {
-    type Error = core::convert::Infallible;
-
     #[inline(always)]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -253,8 +246,6 @@ impl InputPin for ErasedPin<Output<OpenDrain>> {
 }
 
 impl<MODE> InputPin for ErasedPin<Input<MODE>> {
-    type Error = core::convert::Infallible;
-
     #[inline(always)]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -267,10 +258,11 @@ impl<MODE> InputPin for ErasedPin<Input<MODE>> {
 }
 
 // Implementations for `PartiallyErasedPin`
+impl<MODE, const P: char> ErrorType for PartiallyErasedPin<MODE, P> {
+    type Error = Infallible;
+}
 
 impl<MODE, const P: char> OutputPin for PartiallyErasedPin<Output<MODE>, P> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn set_high(&mut self) -> Result<(), Self::Error> {
         self.set_high();
@@ -297,8 +289,6 @@ impl<MODE, const P: char> StatefulOutputPin for PartiallyErasedPin<Output<MODE>,
 }
 
 impl<MODE, const P: char> ToggleableOutputPin for PartiallyErasedPin<Output<MODE>, P> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn toggle(&mut self) -> Result<(), Self::Error> {
         self.toggle();
@@ -307,8 +297,6 @@ impl<MODE, const P: char> ToggleableOutputPin for PartiallyErasedPin<Output<MODE
 }
 
 impl<const P: char> InputPin for PartiallyErasedPin<Output<OpenDrain>, P> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
@@ -321,8 +309,6 @@ impl<const P: char> InputPin for PartiallyErasedPin<Output<OpenDrain>, P> {
 }
 
 impl<MODE, const P: char> InputPin for PartiallyErasedPin<Input<MODE>, P> {
-    type Error = Infallible;
-
     #[inline(always)]
     fn is_high(&self) -> Result<bool, Self::Error> {
         Ok(self.is_high())
