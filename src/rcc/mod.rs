@@ -285,6 +285,8 @@ impl RccExt for RCC {
                 pclk1: None,
                 pclk2: None,
                 sysclk: None,
+                lse: None,
+                lsi: None,
                 pll48clk: false,
                 i2s_ckin: None,
                 #[cfg(any(
@@ -349,6 +351,34 @@ impl RccExt for RCC {
 /// Constrained RCC peripheral
 pub struct Rcc {
     pub cfgr: CFGR,
+}
+
+/// LSE clock mode.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LSEClockMode {
+    /// Enable LSE oscillator to use external crystal or ceramic resonator.
+    Oscillator,
+    /// Bypass LSE oscillator to use external clock source.
+    /// Use this if an external oscillator is used which is not connected to `OSC32_IN` such as a MEMS resonator.
+    Bypass,
+}
+
+/// LSE Clock.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct LSEClock {
+    /// Input frequency.
+    freq: Hertz,
+    /// Mode.
+    mode: LSEClockMode,
+}
+
+impl LSEClock {
+    /// Provide LSE frequency.
+    pub fn new(mode: LSEClockMode) -> Self {
+        // Sets the LSE clock source to 32.768 kHz.
+        let freq = Hertz(32_768_u32);
+        LSEClock { freq, mode }
+    }
 }
 
 /// Built-in high speed clock frequency
@@ -446,6 +476,8 @@ pub struct CFGR {
     pclk1: Option<u32>,
     pclk2: Option<u32>,
     sysclk: Option<u32>,
+    lse: Option<LSEClock>,
+    lsi: Option<Hertz>,
     pll48clk: bool,
 
     i2s_ckin: Option<u32>,
@@ -559,6 +591,20 @@ impl CFGR {
         F: Into<Hertz>,
     {
         self.sysclk = Some(freq.into().0);
+        self
+    }
+
+    /// Sets the LSE clock source to 32.768 kHz.
+    pub fn lse(mut self, lse: LSEClock) -> Self {
+        self.lse = Some(lse);
+        self
+    }
+
+    /// Sets the LSI clock source to 32 kHz.
+    ///
+    /// Be aware that the tolerance is up to ±47% (Min 17 kHz, Typ 32 kHz, Max 47 kHz).
+    pub fn lsi(mut self) -> Self {
+        self.lsi = Some(Hertz(32_000_u32));
         self
     }
 
@@ -1109,6 +1155,23 @@ impl CFGR {
             while rcc.cr.read().pllrdy().bit_is_clear() {}
         }
 
+        // Configure LSE if provided
+        if self.lse.is_some() {
+            // Configure the LSE mode
+            match self.lse.as_ref().unwrap().mode {
+                LSEClockMode::Bypass => rcc.bdcr.modify(|_, w| w.lsebyp().bypassed()),
+                LSEClockMode::Oscillator => rcc.bdcr.modify(|_, w| w.lsebyp().not_bypassed()),
+            }
+            // Enable the LSE.
+            rcc.bdcr.modify(|_, w| w.lseon().on());
+            while rcc.bdcr.read().lserdy().is_not_ready() {}
+        }
+
+        if self.lsi.is_some() {
+            rcc.csr.modify(|_, w| w.lsion().on());
+            while rcc.csr.read().lsirdy().is_not_ready() {}
+        }
+
         #[cfg(not(feature = "stm32f410"))]
         if plls.use_i2spll {
             // Enable PLL.
@@ -1182,6 +1245,8 @@ impl CFGR {
             ppre1,
             ppre2,
             sysclk: Hertz(sysclk),
+            lse: self.lse.map(|lse| lse.freq),
+            lsi: self.lsi,
             pll48clk: plls.pll48clk.map(Hertz),
 
             #[cfg(not(any(
@@ -1527,6 +1592,8 @@ pub struct Clocks {
     ppre1: u8,
     ppre2: u8,
     sysclk: Hertz,
+    lse: Option<Hertz>,
+    lsi: Option<Hertz>,
     pll48clk: Option<Hertz>,
 
     #[cfg(not(any(
@@ -1608,6 +1675,16 @@ impl Clocks {
     /// Returns the system (core) frequency
     pub fn sysclk(&self) -> Hertz {
         self.sysclk
+    }
+
+    /// Returns the frequency of the `LSE` if `Some`, else `None`.
+    pub fn lse(&self) -> Option<Hertz> {
+        self.lse
+    }
+
+    /// Returns the frequency of the `LSI` if `Some`, else `None`.
+    pub fn lsi(&self) -> Option<Hertz> {
+        self.lsi
     }
 
     /// Returns the frequency of the PLL48 clock line
