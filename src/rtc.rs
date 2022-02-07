@@ -2,7 +2,7 @@
 //! For more details, see
 //! [ST AN4759](https:/www.st.com%2Fresource%2Fen%2Fapplication_note%2Fdm00226326-using-the-hardware-realtime-clock-rtc-and-the-tamper-management-unit-tamp-with-stm32-microcontrollers-stmicroelectronics.pdf&usg=AOvVaw3PzvL2TfYtwS32fw-Uv37h)
 
-//use crate::bb;
+use crate::bb;
 use crate::pac::rtc::{dr, tr};
 use crate::pac::{rcc::RegisterBlock, PWR, RCC, RTC};
 use crate::rcc::{Clocks, Enable};
@@ -87,8 +87,10 @@ impl Rtc {
                 // Check if LSE is enabled.
                 clocks.lse()?;
                 // Force a reset of the backup domain.
-                rcc.bdcr.modify(|_, w| w.bdrst().enabled());
-                rcc.bdcr.modify(|_, w| w.bdrst().disabled());
+                unsafe {
+                    bb::set(&rcc.bdcr, 16);
+                    bb::clear(&rcc.bdcr, 16);
+                }
                 // Set clock source to LSE.
                 rcc.bdcr.modify(|_, w| w.rtcsel().lse());
             }
@@ -96,8 +98,10 @@ impl Rtc {
                 // Check if LSI is enabled.
                 clocks.lsi()?;
                 // Force a reset of the backup domain.
-                rcc.bdcr.modify(|_, w| w.bdrst().enabled());
-                rcc.bdcr.modify(|_, w| w.bdrst().disabled());
+                unsafe {
+                    bb::set(&rcc.bdcr, 16);
+                    bb::clear(&rcc.bdcr, 16);
+                }
                 // Set clock source to LSI.
                 rcc.bdcr.modify(|_, w| w.rtcsel().lsi());
             }
@@ -107,8 +111,10 @@ impl Rtc {
                 // Set RTCPRE division factor (HES_RTC).
                 rcc.cfgr.modify(|_, w| w.rtcpre().bits(divider));
                 // Force a reset of the backup domain.
-                rcc.bdcr.modify(|_, w| w.bdrst().enabled());
-                rcc.bdcr.modify(|_, w| w.bdrst().disabled());
+                unsafe {
+                    bb::set(&rcc.bdcr, 16);
+                    bb::clear(&rcc.bdcr, 16);
+                }
                 // Set clock source to LSE.
                 rcc.bdcr.modify(|_, w| w.rtcsel().hse());
             }

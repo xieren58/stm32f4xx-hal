@@ -43,6 +43,7 @@ use crate::pac::rcc::cfgr::{HPRE_A, SW_A};
 use crate::pac::{rcc, RCC};
 
 use crate::time::Hertz;
+use crate::bb;
 
 #[cfg(not(feature = "stm32f410"))]
 use pll::I2sPll;
@@ -1156,14 +1157,16 @@ impl CFGR {
         }
 
         // Configure LSE if provided
-        if self.lse.is_some() {
-            // Configure the LSE mode
-            match self.lse.as_ref().unwrap().mode {
-                LSEClockMode::Bypass => rcc.bdcr.modify(|_, w| w.lsebyp().bypassed()),
-                LSEClockMode::Oscillator => rcc.bdcr.modify(|_, w| w.lsebyp().not_bypassed()),
+        if let Some(lse) = self.lse.as_ref() {
+            unsafe {
+                // Configure the LSE mode
+                match lse.mode {
+                    LSEClockMode::Bypass => bb::set(&rcc.bdcr, 2),
+                    LSEClockMode::Oscillator => bb::clear(&rcc.bdcr, 2),
+                }
+                // Enable the LSE.
+                bb::set(&rcc.bdcr, 0);
             }
-            // Enable the LSE.
-            rcc.bdcr.modify(|_, w| w.lseon().on());
             while rcc.bdcr.read().lserdy().is_not_ready() {}
         }
 

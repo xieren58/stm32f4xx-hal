@@ -29,14 +29,19 @@ fn main() -> ! {
     let mut p = pac::Peripherals::take().unwrap();
     let rcc = p.RCC.constrain();
 
-    //let clocks = rcc.cfgr.lse(LSEClock::new(LSEClockMode::Oscillator)).freeze();
-    let clocks = rcc.cfgr.lsi().freeze();
+    let clocks = rcc.cfgr.lse(LSEClock::new(LSEClockMode::Oscillator)).freeze();
+    //let clocks = rcc.cfgr.lsi().freeze();
+    let mut delay = p.TIM5.delay_us(&clocks);
+        delay.delay(500.millis()).unwrap();
 
-    let mut rtc = Rtc::new(p.RTC, 249, 127, RtcClock::Lsi, clocks, &mut p.PWR).unwrap();
+    rprintln!("Rcc configured");
+
+    let mut rtc = Rtc::new(p.RTC, 249, 127, RtcClock::Lse, clocks, &mut p.PWR).unwrap();
+
+    rprintln!("RTC configured");
 
     rtc.set_datetime(&PrimitiveDateTime::new(date!(2019 - 01 - 01), time!(23:59:50)))
         .unwrap();
-    let mut delay = p.TIM5.delay_us(&clocks);
     // Alternatively:
     // rtc.set_date(&date!(2019 - 01 - 01)).unwrap();
     // rtc.set_time(&time!(23:59)).unwrap();
