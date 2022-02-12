@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
+- Rtc: add subsecond reading, add interrupts [#446]
 - Move `MonoTimer` from `timer` to dwt mode [#448]
 - Unify serial trait impls for embedded-hal 0.2 & 1.0 [#447]
 - Add possibility to select Timer master mode
@@ -58,6 +59,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 [#443]: https://github.com/stm32-rs/stm32f4xx-hal/pull/443
 [#441]: https://github.com/stm32-rs/stm32f4xx-hal/pull/441
 [#430]: https://github.com/stm32-rs/stm32f4xx-hal/pull/430
+[#446]: https://github.com/stm32-rs/stm32f4xx-hal/pull/446
 [#447]: https://github.com/stm32-rs/stm32f4xx-hal/pull/447
 [#448]: https://github.com/stm32-rs/stm32f4xx-hal/pull/448
 
