@@ -28,10 +28,7 @@ macro_rules! out_port {
                 Self { $($d),+ }
             }
             const fn value_for_write_bsrr(val: u32) -> u32 {
-                $(let $d = ((val >> $i) & 0b1) != 0;)+
-                let r = 0;
-                $(let r = r | (1 << (if $d { $N } else { $N + 16 }));)+
-                r
+                0 $( | (1 << (if val & (1 << $i) != 0 { $N } else { $N + 16 })))+
             }
             pub fn write_u8(&mut self, word: u8) {
                 unsafe {
