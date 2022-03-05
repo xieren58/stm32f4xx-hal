@@ -30,6 +30,7 @@ macro_rules! out_port {
             const fn value_for_write_bsrr(val: u32) -> u32 {
                 0 $( | (1 << (if val & (1 << $i) != 0 { $N } else { $N + 16 })))+
             }
+            #[inline(never)]
             pub fn write_u8(&mut self, word: u8) {
                 unsafe {
                     (*Gpio::<P>::ptr())

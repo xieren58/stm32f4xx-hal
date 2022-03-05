@@ -35,6 +35,8 @@ fn main() -> ! {
     let d6 = gpiob.pb4.into_push_pull_output();
     let d7 = gpiob.pb3.into_push_pull_output();
 
+    //let mut lcd = HD44780::new_4bit(rs, en, d4, d5, d6, d7, &mut delay).unwrap();
+    // or
     let mut lcd = HD44780::new_4bit_port(rs, en, (d4, d5, d6, d7).outport(), &mut delay).unwrap();
     lcd.reset(&mut delay).unwrap();
     lcd.clear(&mut delay).unwrap();
