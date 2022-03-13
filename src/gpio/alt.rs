@@ -312,7 +312,8 @@ pin! {
     <spi::Miso, SPI2> for [PB14<5>, PC2<5>],
     <spi::Mosi, SPI2> for [PB15<5>, PC3<5>],
     <spi::Nss,  SPI2> for [PB9<5>, PB12<5>],
-    <i2s::Mck,  SPI2> for [PC6<5>]
+    <i2s::Mck,  SPI2> for [PC6<5>],
+    <i2s::ExtSd, I2S2EXT> for [PB14<6>, PC2<6>]
 }
 
 #[cfg(feature = "spi3")]
@@ -321,7 +322,8 @@ pin! {
     <spi::Miso, SPI3> for [PB4<6>, PC11<6>],
     <spi::Mosi, SPI3> for [PB5<6>, PC12<6>],
     <spi::Nss,  SPI3> for [PA4<6>, PA15<6>],
-    <i2s::Mck,  SPI3> for [PC7<6>]
+    <i2s::Mck,  SPI3> for [PC7<6>],
+    <i2s::ExtSd, I2S3EXT> for [PB4<6>, PC11<5>]
 }
 
 #[cfg(any(
@@ -364,7 +366,8 @@ pin! {
     <spi::Sck,  SPI2> for [PI1<5>],
     <spi::Miso, SPI2> for [PI2<5>],
     <spi::Mosi, SPI2> for [PI3<5>],
-    <spi::Nss,  SPI2> for [PI0<5>]
+    <spi::Nss,  SPI2> for [PI0<5>],
+    <i2s::ExtSd, I2S2EXT> for [PI2<6>]
 }
 
 #[cfg(any(
