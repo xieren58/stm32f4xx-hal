@@ -127,7 +127,7 @@ pub trait I2sFreq {
 /// $clock: The name of the Clocks function that returns the frequency of the I2S clock input
 /// to this SPI peripheral (i2s_cl, i2s_apb1_clk, or i2s2_apb_clk)
 macro_rules! i2s {
-    ($SPI:ty, $I2s:ident, $clock:ident) => {
+    ($SPI:ty, $I2s:ident, $clock:ident $(, $I2SEXT:ty)?) => {
         pub type $I2s<PINS> = I2s<$SPI, PINS>;
 
         impl Instance for $SPI {}
@@ -144,6 +144,13 @@ macro_rules! i2s {
         unsafe impl<PINS> stm32_i2s_v12x::Instance for I2s<$SPI, PINS> {
             const REGISTERS: *mut RegisterBlock = <$SPI>::ptr() as *mut _;
         }
+
+        $(
+            #[cfg(feature = "stm32_i2s_v12x")]
+            unsafe impl<PINS> stm32_i2s_v12x::DualInstance for I2s<($SPI, $I2SEXT), PINS> {
+                const REGISTERS: (*mut RegisterBlock, *mut RegisterBlock) = (<$SPI>::ptr() as *mut _, <$I2SEXT>::ptr() as *mut _);
+            }
+        )?
     };
 }
 
@@ -220,14 +227,14 @@ i2s!(pac::SPI1, I2s1, i2s_apb2_clk);
     feature = "stm32f423",
     feature = "stm32f446",
 )))]
-i2s!(pac::SPI2, I2s2, i2s_clk);
+i2s!(pac::SPI2, I2s2, i2s_clk, pac::I2S2EXT);
 #[cfg(any(
     feature = "stm32f412",
     feature = "stm32f413",
     feature = "stm32f423",
     feature = "stm32f446",
 ))]
-i2s!(pac::SPI2, I2s2, i2s_apb1_clk);
+i2s!(pac::SPI2, I2s2, i2s_apb1_clk, pac::I2S2EXT);
 
 // All STM32F4 models except STM32F410 support SPI3/I2S3
 #[cfg(any(
@@ -244,14 +251,14 @@ i2s!(pac::SPI2, I2s2, i2s_apb1_clk);
     feature = "stm32f469",
     feature = "stm32f479",
 ))]
-i2s!(pac::SPI3, I2s3, i2s_clk);
+i2s!(pac::SPI3, I2s3, i2s_clk, pac::I2S3EXT);
 #[cfg(any(
     feature = "stm32f412",
     feature = "stm32f413",
     feature = "stm32f423",
     feature = "stm32f446",
 ))]
-i2s!(pac::SPI3, I2s3, i2s_apb1_clk);
+i2s!(pac::SPI3, I2s3, i2s_apb1_clk, pac::I2S3EXT);
 
 #[cfg(feature = "stm32f411")]
 i2s!(pac::SPI4, I2s4, i2s_clk);
@@ -272,6 +279,14 @@ pub struct I2s<I, PINS> {
 }
 
 impl<I, PINS> I2s<I, PINS> {
+    /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
+    /// I2S PLL or similar source
+    pub fn input_clock(&self) -> Hertz {
+        self.input_clock
+    }
+}
+
+impl<I, PINS> DualI2s<I, PINS> {
     /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
     /// I2S PLL or similar source
     pub fn input_clock(&self) -> Hertz {
