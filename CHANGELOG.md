@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+
+- Fix `embedded_hal 1.0-alpha.7` version, public `PinMode`, update deps
 - Remove the defmt feature/dependency name workaround
 
 ## [v0.13.0] - 2022-04-04

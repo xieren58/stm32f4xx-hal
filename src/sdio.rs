@@ -551,7 +551,7 @@ impl Sdio<SdCard> {
             // Initialize card
 
             // 3.2-3.3V
-            let voltage_window = 1 << 20;
+            let voltage_window = 1 << 5;
             match self.app_cmd(sd_cmd::sd_send_op_cond(true, false, true, voltage_window)) {
                 Ok(_) => (),
                 Err(Error::Crc) => (),
