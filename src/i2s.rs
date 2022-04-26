@@ -4,8 +4,6 @@
 
 use crate::gpio::{Const, NoPin, PinA, PushPull, SetAlternate};
 #[cfg(feature = "stm32_i2s_v12x")]
-use stm32_i2s_v12x::RegisterBlock;
-
 use crate::pac::{self, RCC};
 use crate::rcc;
 use crate::{rcc::Clocks, spi};
@@ -73,8 +71,8 @@ pub trait I2sFreq {
     fn i2s_freq(clocks: &Clocks) -> Hertz;
 }
 
-/// Implements stm32_i2s_v12x::Instance for I2s<$SPIX, _> and creates an I2s::$spix function to create and enable
-/// the peripheral
+/// Implements stm32_i2s_v12x::I2sPeripheral for I2s<$SPIX, _> and creates an I2s::$spix function
+/// to create and enable the peripheral
 ///
 /// $SPIX: The fully-capitalized name of the SPI peripheral (example: SPI1)
 /// $i2sx: The lowercase I2S name of the peripheral (example: i2s1). This is the name of the
@@ -96,8 +94,11 @@ macro_rules! i2s {
         }
 
         #[cfg(feature = "stm32_i2s_v12x")]
-        unsafe impl<PINS> stm32_i2s_v12x::Instance for I2s<$SPI, PINS> {
-            const REGISTERS: *mut RegisterBlock = <$SPI>::ptr() as *mut _;
+        unsafe impl<PINS> stm32_i2s_v12x::I2sPeripheral for I2s<$SPI, PINS> {
+            const REGISTERS: *const () = <$SPI>::ptr() as *const _;
+            fn i2s_freq(&self) -> u32 {
+                self.input_clock.raw()
+            }
         }
     };
 }
@@ -134,8 +135,8 @@ where
     ///
     /// This function enables and resets the SPI peripheral, but does not configure it.
     ///
-    /// The returned I2s object implements `stm32_i2s_v12x::Instance`, so it can be used
-    /// to configure the peripheral and communicate.
+    /// The returned I2s object implements `stm32_i2s_v12x::I2sPeripheral`, so it can be used to
+    /// configure the peripheral and communicate.
     ///
     /// # Panics
     ///
@@ -258,9 +259,9 @@ mod dma {
     use core::ops::Deref;
 
     /// I2S DMA reads from and writes to the data register
-    unsafe impl<SPI, PINS, MODE> PeriAddress for stm32_i2s_v12x::I2s<I2s<SPI, PINS>, MODE>
+    unsafe impl<SPI, PINS> PeriAddress for stm32_i2s_v12x::I2sDriver<I2s<SPI, PINS>>
     where
-        I2s<SPI, PINS>: stm32_i2s_v12x::Instance,
+        I2s<SPI, PINS>: stm32_i2s_v12x::I2sPeripheral,
         PINS: Pins<SPI>,
         SPI: Deref<Target = crate::pac::spi1::RegisterBlock>,
     {
@@ -269,14 +270,14 @@ mod dma {
         type MemSize = u16;
 
         fn address(&self) -> u32 {
-            let registers = &*self.instance().spi;
+            let registers = &*self.i2s_peripheral().spi;
             &registers.dr as *const _ as u32
         }
     }
 
     /// DMA is available for I2S based on the underlying implementations for SPI
-    unsafe impl<SPI, PINS, MODE, STREAM, const CHANNEL: u8, DIR> DMASet<STREAM, CHANNEL, DIR>
-        for stm32_i2s_v12x::I2s<I2s<SPI, PINS>, MODE>
+    unsafe impl<SPI, PINS, STREAM, const CHANNEL: u8, DIR> DMASet<STREAM, CHANNEL, DIR>
+        for stm32_i2s_v12x::I2sDriver<I2s<SPI, PINS>>
     where
         SPI: DMASet<STREAM, CHANNEL, DIR>,
     {
