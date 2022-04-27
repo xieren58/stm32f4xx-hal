@@ -85,13 +85,17 @@ mod app {
             .standard(I2sStandard::Philips)
             .master_clock(true)
             .request_frequency(48_000);
-        let i2s2_driver = stm32_i2s_v12x::I2sDriver::new(i2s2, i2s2_config);
+        let mut i2s2_driver = stm32_i2s_v12x::I2sDriver::new(i2s2, i2s2_config);
+        i2s2_driver.set_rx_interrupt(true);
+        i2s2_driver.set_error_interrupt(true);
 
         // I2S3 pins: (WS, CK, MCLK, SD) for I2S3
         let i2s3_pins = (gpioa.pa4, gpioc.pc10, NoPin, gpioc.pc12);
         let i2s3 = I2s::new(device.SPI3, i2s3_pins, &clocks);
-        let i2s3_config = i2s2_config.to_slave();
-        let i2s3_driver = I2sDriver::new(i2s3, i2s3_config);
+        let i2s3_config = i2s2_config.to_slave().transmit();
+        let mut i2s3_driver = I2sDriver::new(i2s3, i2s3_config);
+        i2s3_driver.set_tx_interrupt(true);
+        i2s3_driver.set_error_interrupt(true);
 
         (
             Shared {
