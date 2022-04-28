@@ -3,7 +3,6 @@
 //! This module is only available if the `i2s` feature is enabled.
 
 use crate::gpio::{Const, NoPin, PinA, PushPull, SetAlternate};
-#[cfg(feature = "stm32_i2s_v12x")]
 use crate::pac::{self, RCC};
 use crate::rcc;
 use crate::{rcc::Clocks, spi};
