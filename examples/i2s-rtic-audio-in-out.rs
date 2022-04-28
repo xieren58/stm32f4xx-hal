@@ -45,10 +45,27 @@ mod app {
 
     use rtt_target::{rtt_init, set_print_channel};
 
-    use stm32_i2s_v12x::{Config, I2sDriver, I2sStandard};
+    use stm32_i2s_v12x::{Channel, Config, I2sDriver, I2sStandard};
 
     type I2s2Driver = I2sDriver<I2s<SPI2, (PB12, PB13, PC6, PB15)>>;
     type I2s3Driver = I2sDriver<I2s<SPI3, (PA4, PC10, NoPin, PC12)>>;
+
+    // Part of the frame we curently transmit or receive
+    #[derive(Copy, Clone)]
+    pub enum FrameState {
+        LeftMsb,
+        LeftLsb,
+        RightMsb,
+        RightLsb,
+    }
+
+    use FrameState::{LeftLsb, LeftMsb, RightLsb, RightMsb};
+
+    impl Default for FrameState {
+        fn default() -> Self {
+            Self::LeftMsb
+        }
+    }
 
     #[shared]
     struct Shared {
@@ -56,11 +73,14 @@ mod app {
         i2s2_driver: I2s2Driver,
         #[lock_free]
         i2s3_driver: I2s3Driver,
+        sample: (u32, u32), // sample to communicate to the i2s transmit task
     }
 
     #[local]
     struct Local {
         logs_chan: rtt_target::UpChannel,
+        i2s2: I2s2Local,
+        i2s3: I2s3Local,
     }
 
     #[init]
@@ -124,8 +144,13 @@ mod app {
             Shared {
                 i2s2_driver,
                 i2s3_driver,
+                sample: Default::default(),
             },
-            Local { logs_chan },
+            Local {
+                logs_chan,
+                i2s2: Default::default(),
+                i2s3: Default::default(),
+            },
             init::Monotonics(),
         )
     }
@@ -142,14 +167,109 @@ mod app {
         writeln!(cx.local.logs_chan, "{}", message).unwrap();
     }
 
-    #[task(priority = 4, binds = SPI2, local = [], shared = [i2s2_driver])]
-    fn i2s2(cx: i2s2::Context) {
-        let mut _i2s2_driver = cx.shared.i2s2_driver;
+    // processing audio
+    #[task(shared = [sample])]
+    fn process(mut cx: process::Context, sample: (u32, u32)) {
+        cx.shared.sample.lock(|smpl| *smpl = sample);
     }
 
-    #[task(priority = 4, binds = SPI3, local = [], shared = [i2s3_driver])]
+    #[derive(Default)]
+    pub struct I2s2Local {
+        frame_state: FrameState,
+    }
+
+    #[task(
+        priority = 4,
+        binds = SPI2,
+        local = [frame_state: FrameState = LeftMsb, frame: (u32,u32) = (0,0), i2s2],
+        shared = [i2s2_driver]
+    )]
+    fn i2s2(cx: i2s2::Context) {
+        let frame_state = cx.local.frame_state;
+        let frame = cx.local.frame;
+        let i2s2_driver = cx.shared.i2s2_driver;
+        let status = i2s2_driver.status();
+        if status.ovr() {
+            log::spawn("i2s2 Overrun").ok();
+            // sequence to delete ovr flag
+            i2s2_driver.read_data_register();
+            i2s2_driver.status();
+        } else if status.rxne() {
+            let data = i2s2_driver.read_data_register();
+            match (*frame_state, status.chside()) {
+                (LeftMsb, Channel::Left) => {
+                    frame.0 = (data as u32) << 16;
+                    *frame_state = LeftLsb;
+                }
+                (LeftLsb, Channel::Left) => {
+                    frame.0 |= data as u32;
+                    *frame_state = RightMsb;
+                }
+                (RightMsb, Channel::Right) => {
+                    frame.1 = (data as u32) << 16;
+                    *frame_state = RightLsb;
+                }
+                (RightLsb, Channel::Right) => {
+                    frame.1 |= data as u32;
+                    // do process here
+                    *frame_state = LeftMsb;
+                }
+                // in case of ovr this resynchronize at start of new frame
+                _ => *frame_state = LeftMsb,
+            }
+        }
+    }
+
+    #[derive(Default)]
+    pub struct I2s3Local {
+        frame_state: FrameState,
+    }
+
+    #[task(
+        priority = 4,
+        binds = SPI3,
+        local = [frame_state: FrameState = LeftMsb,frame: (u32,u32) = (0,0), i2s3],
+        shared = [sample,i2s3_driver]
+    )]
     fn i2s3(cx: i2s3::Context) {
-        let mut _i2s3_driver = cx.shared.i2s3_driver;
+        let frame_state = cx.local.frame_state;
+        let frame = cx.local.frame;
+        let i2s3_driver = cx.shared.i2s3_driver;
+        let mut sample = cx.shared.sample;
+        let status = i2s3_driver.status();
+        if status.fre() {
+            log::spawn("i2s3 Frame error").ok();
+            todo!("slave synchronisation");
+        } else if status.udr() {
+            log::spawn("i2s3 underrun").ok();
+        } else if status.rxne() {
+            let data;
+            match (*frame_state, status.chside()) {
+                (LeftMsb, Channel::Left) => {
+                    *frame = sample.lock(|smpl| *smpl);
+                    data = (frame.0 >> 16) as u16;
+                    *frame_state = LeftLsb;
+                }
+                (LeftLsb, Channel::Left) => {
+                    data = (frame.0 & 0xFFFF) as u16;
+                    *frame_state = RightMsb;
+                }
+                (RightMsb, Channel::Right) => {
+                    data = (frame.1 >> 16) as u16;
+                    *frame_state = RightLsb;
+                }
+                (RightLsb, Channel::Right) => {
+                    data = (frame.1 & 0xFFFF) as u16;
+                    *frame_state = LeftMsb;
+                }
+                // in case of udr this resynchronize tracked and actual channel
+                _ => {
+                    *frame_state = LeftMsb;
+                    data = 0; //garbage data to avoid additional underrrun
+                }
+            }
+            i2s3_driver.write_data_register(data);
+        }
     }
 
     // Look i2s3 WS line for (re) synchronisation
