@@ -31,6 +31,8 @@ use stm32f4xx_hal as hal;
 
 #[rtic::app(device = stm32f4xx_hal::pac, peripherals = true,dispatchers = [EXTI0, EXTI1, EXTI2, EXTI3 ])]
 mod app {
+    use core::fmt::Write;
+
     use super::hal;
 
     use hal::gpio::gpioa::*;
@@ -41,6 +43,8 @@ mod app {
     use hal::pac::{SPI2, SPI3};
     use hal::prelude::*;
 
+    use rtt_target::{rtt_init, set_print_channel};
+
     use stm32_i2s_v12x::{Config, I2sDriver, I2sStandard};
 
     type I2s2Driver = I2sDriver<I2s<SPI2, (PB12, PB13, PC6, PB15)>>;
@@ -48,15 +52,34 @@ mod app {
 
     #[shared]
     struct Shared {
+        #[lock_free]
         i2s2_driver: I2s2Driver,
+        #[lock_free]
         i2s3_driver: I2s3Driver,
     }
 
     #[local]
-    struct Local {}
+    struct Local {
+        logs_chan: rtt_target::UpChannel,
+    }
 
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local, init::Monotonics) {
+        let channels = rtt_init! {
+            up: {
+                0: {
+                    size: 128
+                    name: "Logs"
+                }
+                1: {
+                    size: 128
+                    name: "Panics"
+                }
+            }
+        };
+        let logs_chan = channels.up.0;
+        let panics_chan = channels.up.1;
+        set_print_channel(panics_chan);
         let device = ctx.device;
         let gpioa = device.GPIOA.split();
         let gpiob = device.GPIOB.split();
@@ -102,24 +125,38 @@ mod app {
                 i2s2_driver,
                 i2s3_driver,
             },
-            Local {},
+            Local { logs_chan },
             init::Monotonics(),
         )
     }
 
     #[idle(shared = [], local = [])]
-    fn idle(cx: idle::Context) -> ! {
+    fn idle(_cx: idle::Context) -> ! {
+        #[allow(clippy::empty_loop)]
         loop {}
     }
 
-    #[task(priority = 4, binds = SPI2, local = [], shared = [])]
-    fn i2s2(cx: i2s2::Context) {}
+    // Printing message directly in a i2s interrupt can cause timing issues.
+    #[task(capacity = 10, local = [logs_chan])]
+    fn log(cx: log::Context, message: &'static str) {
+        writeln!(cx.local.logs_chan, "{}", message).unwrap();
+    }
 
-    #[task(priority = 4, binds = SPI3, local = [], shared = [])]
-    fn i2s3(cx: i2s3::Context) {}
+    #[task(priority = 4, binds = SPI2, local = [], shared = [i2s2_driver])]
+    fn i2s2(cx: i2s2::Context) {
+        let mut _i2s2_driver = cx.shared.i2s2_driver;
+    }
 
-    #[task(priority = 5, binds = EXTI15_10, shared = [])]
-    fn exti15_10(cx: exti15_10::Context) {}
+    #[task(priority = 4, binds = SPI3, local = [], shared = [i2s3_driver])]
+    fn i2s3(cx: i2s3::Context) {
+        let mut _i2s3_driver = cx.shared.i2s3_driver;
+    }
+
+    // Look i2s3 WS line for (re) synchronisation
+    #[task(priority = 4, binds = EXTI4, shared = [i2s3_driver])]
+    fn exti4(cx: exti4::Context) {
+        let mut _i2s3_driver = cx.shared.i2s3_driver;
+    }
 }
 
 #[inline(never)]
