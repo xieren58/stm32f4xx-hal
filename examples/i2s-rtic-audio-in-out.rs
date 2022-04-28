@@ -79,8 +79,6 @@ mod app {
     #[local]
     struct Local {
         logs_chan: rtt_target::UpChannel,
-        i2s2: I2s2Local,
-        i2s3: I2s3Local,
     }
 
     #[init]
@@ -146,11 +144,7 @@ mod app {
                 i2s3_driver,
                 sample: Default::default(),
             },
-            Local {
-                logs_chan,
-                i2s2: Default::default(),
-                i2s3: Default::default(),
-            },
+            Local { logs_chan },
             init::Monotonics(),
         )
     }
@@ -173,15 +167,10 @@ mod app {
         cx.shared.sample.lock(|smpl| *smpl = sample);
     }
 
-    #[derive(Default)]
-    pub struct I2s2Local {
-        frame_state: FrameState,
-    }
-
     #[task(
         priority = 4,
         binds = SPI2,
-        local = [frame_state: FrameState = LeftMsb, frame: (u32,u32) = (0,0), i2s2],
+        local = [frame_state: FrameState = LeftMsb, frame: (u32,u32) = (0,0)],
         shared = [i2s2_driver]
     )]
     fn i2s2(cx: i2s2::Context) {
@@ -220,15 +209,10 @@ mod app {
         }
     }
 
-    #[derive(Default)]
-    pub struct I2s3Local {
-        frame_state: FrameState,
-    }
-
     #[task(
         priority = 4,
         binds = SPI3,
-        local = [frame_state: FrameState = LeftMsb,frame: (u32,u32) = (0,0), i2s3],
+        local = [frame_state: FrameState = LeftMsb,frame: (u32,u32) = (0,0)],
         shared = [sample,i2s3_driver]
     )]
     fn i2s3(cx: i2s3::Context) {
