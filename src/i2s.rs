@@ -34,12 +34,20 @@ impl crate::Sealed for Mck {}
 /// A placeholder for when the MCLK pin is not needed
 pub type NoMasterClock = NoPin;
 
+/// Level at I2S WS Pin
+pub enum WsLevel {
+    High,
+    Low,
+}
+
 /// A set of pins configured for I2S communication: (WS, CK, MCLK, SD)
 ///
 /// NoMasterClock can be used instead of the master clock pin.
 pub trait Pins<SPI> {
     fn set_alt_mode(&mut self);
     fn restore_mode(&mut self);
+    /// Get WS pin level.
+    fn ws_level(&self) -> WsLevel;
 }
 
 impl<SPI, WS, CK, MCLK, SD, const WSA: u8, const CKA: u8, const MCLKA: u8, const SDA: u8> Pins<SPI>
@@ -61,6 +69,9 @@ where
         self.1.restore_mode();
         self.2.restore_mode();
         self.3.restore_mode();
+    }
+    fn ws_level(&self) -> WsLevel {
+        todo!()
     }
 }
 
@@ -97,6 +108,9 @@ macro_rules! i2s {
             const REGISTERS: *const () = <$SPI>::ptr() as *const _;
             fn i2s_freq(&self) -> u32 {
                 self.input_clock.raw()
+            }
+            fn ws_level(&self) -> stm32_i2s_v12x::WsLevel {
+                todo!()
             }
         }
     };
