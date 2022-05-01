@@ -92,12 +92,6 @@ mod sealed {
 }
 use sealed::Sealed;
 
-/// Level at I2S WS Pin
-pub enum WsLevel {
-    High,
-    Low,
-}
-
 /// Trait for Pin carrying a WS signal. Allow to read this signal.
 ///
 /// # Side effects
@@ -106,7 +100,8 @@ pub enum WsLevel {
 /// probably meaningless.
 pub trait WsPin: Sealed {
     /// Get the signal level on a WS pin on i2s alternate mode.
-    fn ws_level(&self) -> WsLevel;
+    fn is_high(&self) -> bool;
+    fn is_low(&self) -> bool;
 }
 
 impl<const WSP: char, const WSN: u8, const WSA: u8> Sealed for Pin<WSP, WSN, Alternate<WSA>>
@@ -121,13 +116,13 @@ where
     Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
     pac::SPI2: Instance,
 {
-    fn ws_level(&self) -> WsLevel {
+    fn is_high(&self) -> bool {
         // I don't want to alter gpio hal so I pretend an Input pin state to get the level
-        let is_low = unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_low() };
-        match is_low {
-            true => WsLevel::Low,
-            false => WsLevel::High,
-        }
+        unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_high() }
+    }
+    fn is_low(&self) -> bool {
+        // I don't want to alter gpio hal so I pretend an Input pin state to get the level
+        unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_low() }
     }
 }
 
