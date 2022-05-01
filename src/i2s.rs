@@ -2,7 +2,7 @@
 //!
 //! This module is only available if the `i2s` feature is enabled.
 
-use crate::gpio::{Alternate, Const, NoPin, Pin, PinA, PushPull, SetAlternate};
+use crate::gpio::{Alternate, Const, Input, NoPin, Pin, PinA, PushPull, SetAlternate};
 use crate::pac::{self, RCC};
 use crate::rcc;
 use crate::{rcc::Clocks, spi};
@@ -50,7 +50,7 @@ mod pins {
         type WsPin;
         fn set_alt_mode(&mut self);
         fn restore_mode(&mut self);
-        /// Get WS pin.
+        /// Get WS pin with I2s Alternate mode.
         fn ws_pin(&mut self) -> &mut Self::WsPin;
     }
 }
@@ -90,6 +90,25 @@ where
     }
     fn ws_pin(&mut self) -> &mut Self::WsPin {
         unsafe { &mut *(&mut self.0 as *mut _ as *mut Self::WsPin) }
+    }
+}
+
+pub trait WsPin {
+    /// Get the signal level on a WS pin on i2s alternate mode.
+    fn ws_level(&self) -> WsLevel;
+}
+
+impl<const WSP: char, const WSN: u8, const WSA: u8> WsPin for Pin<WSP, WSN, Alternate<WSA>>
+where
+    Self: PinA<Ws, pac::SPI2>,
+{
+    fn ws_level(&self) -> WsLevel {
+        // ugly, pretend beeing Input pin to get the level
+        let is_low = unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_low() };
+        match is_low {
+            true => WsLevel::Low,
+            false => WsLevel::High,
+        }
     }
 }
 
