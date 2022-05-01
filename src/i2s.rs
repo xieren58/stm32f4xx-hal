@@ -40,12 +40,14 @@ mod pins {
     ///
     /// NoMasterClock can be used instead of the master clock pin.
     pub trait Pins<SPI> {
-        /// Ws pin in I2S mode.
+        /// WS pin in I2S alternate type state.
         type WsPin;
         fn set_alt_mode(&mut self);
         fn restore_mode(&mut self);
-        /// Get WS pin with I2s Alternate mode.
-        fn ws_pin(&mut self) -> &mut Self::WsPin;
+        /// Get WS pin.
+        fn ws_pin(&self) -> &Self::WsPin;
+        /// Get WS pin mutably.
+        fn ws_pin_mut(&mut self) -> &mut Self::WsPin;
     }
 }
 use pins::*;
@@ -82,7 +84,10 @@ where
         self.2.restore_mode();
         self.3.restore_mode();
     }
-    fn ws_pin(&mut self) -> &mut Self::WsPin {
+    fn ws_pin(&self) -> &Self::WsPin {
+        unsafe { &*(&self.0 as *const _ as *const Self::WsPin) }
+    }
+    fn ws_pin_mut(&mut self) -> &mut Self::WsPin {
         unsafe { &mut *(&mut self.0 as *mut _ as *mut Self::WsPin) }
     }
 }
@@ -214,8 +219,11 @@ where
 }
 
 impl<SPI, PINS: Pins<SPI>> I2s<SPI, PINS> {
-    pub fn ws_pin(&mut self) -> &mut PINS::WsPin {
+    pub fn ws_pin(&self) -> &PINS::WsPin {
         self.pins.ws_pin()
+    }
+    pub fn ws_pin_mut(&mut self) -> &mut PINS::WsPin {
+        self.pins.ws_pin_mut()
     }
 }
 
