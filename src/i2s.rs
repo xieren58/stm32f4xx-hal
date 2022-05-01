@@ -2,7 +2,7 @@
 //!
 //! This module is only available if the `i2s` feature is enabled.
 
-use crate::gpio::{Const, NoPin, PinA, PushPull, SetAlternate};
+use crate::gpio::{Alternate, Const, NoPin, Pin, PinA, PushPull, SetAlternate};
 use crate::pac::{self, RCC};
 use crate::rcc;
 use crate::{rcc::Clocks, spi};
@@ -40,24 +40,42 @@ pub enum WsLevel {
     Low,
 }
 
-/// A set of pins configured for I2S communication: (WS, CK, MCLK, SD)
-///
-/// NoMasterClock can be used instead of the master clock pin.
-pub trait Pins<SPI> {
-    fn set_alt_mode(&mut self);
-    fn restore_mode(&mut self);
-    /// Get WS pin level.
-    fn ws_level(&self) -> WsLevel;
+/// prevent usage of the inner trait outside the crate since it allow pin state violation
+mod pins {
+    /// A set of pins configured for I2S communication: (WS, CK, MCLK, SD)
+    ///
+    /// NoMasterClock can be used instead of the master clock pin.
+    pub trait Pins<SPI> {
+        /// Ws pin in I2S mode.
+        type WsPin;
+        fn set_alt_mode(&mut self);
+        fn restore_mode(&mut self);
+        /// Get WS pin.
+        fn ws_pin(&mut self) -> &mut Self::WsPin;
+    }
 }
+use pins::*;
 
-impl<SPI, WS, CK, MCLK, SD, const WSA: u8, const CKA: u8, const MCLKA: u8, const SDA: u8> Pins<SPI>
-    for (WS, CK, MCLK, SD)
+impl<
+        SPI,
+        const WSP: char,
+        const WSN: u8,
+        WSM,
+        const WSA: u8,
+        CK,
+        const CKA: u8,
+        MCLK,
+        const MCLKA: u8,
+        SD,
+        const SDA: u8,
+    > Pins<SPI> for (Pin<WSP, WSN, WSM>, CK, MCLK, SD)
 where
-    WS: PinA<Ws, SPI, A = Const<WSA>> + SetAlternate<WSA, PushPull>,
+    Pin<WSP, WSN, WSM>: PinA<Ws, SPI, A = Const<WSA>> + SetAlternate<WSA, PushPull>,
     CK: PinA<Ck, SPI, A = Const<CKA>> + SetAlternate<CKA, PushPull>,
     MCLK: PinA<Mck, SPI, A = Const<MCLKA>> + SetAlternate<MCLKA, PushPull>,
     SD: PinA<Sd, SPI, A = Const<SDA>> + SetAlternate<SDA, PushPull>,
 {
+    type WsPin = Pin<WSP, WSN, Alternate<WSA>>;
     fn set_alt_mode(&mut self) {
         self.0.set_alt_mode();
         self.1.set_alt_mode();
@@ -70,8 +88,8 @@ where
         self.2.restore_mode();
         self.3.restore_mode();
     }
-    fn ws_level(&self) -> WsLevel {
-        todo!()
+    fn ws_pin(&mut self) -> &mut Self::WsPin {
+        unsafe { &mut *(&mut self.0 as *mut _ as *mut Self::WsPin) }
     }
 }
 
