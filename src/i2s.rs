@@ -34,12 +34,6 @@ impl crate::Sealed for Mck {}
 /// A placeholder for when the MCLK pin is not needed
 pub type NoMasterClock = NoPin;
 
-/// Level at I2S WS Pin
-pub enum WsLevel {
-    High,
-    Low,
-}
-
 /// prevent usage of the inner trait outside the crate since it allow pin state violation
 mod pins {
     /// A set of pins configured for I2S communication: (WS, CK, MCLK, SD)
@@ -98,6 +92,12 @@ mod sealed {
 }
 use sealed::Sealed;
 
+/// Level at I2S WS Pin
+pub enum WsLevel {
+    High,
+    Low,
+}
+
 /// Trait for Pin carrying a WS signal. Allow to read this signal.
 ///
 /// # Side effects
@@ -139,41 +139,6 @@ pub trait I2sFreq {
     fn i2s_freq(clocks: &Clocks) -> Hertz;
 }
 
-/// Implements stm32_i2s_v12x::I2sPeripheral for I2s<$SPIX, _> and creates an I2s::$spix function
-/// to create and enable the peripheral
-///
-/// $SPIX: The fully-capitalized name of the SPI peripheral (example: SPI1)
-/// $i2sx: The lowercase I2S name of the peripheral (example: i2s1). This is the name of the
-/// function that creates an I2s and enables the peripheral clock.
-/// $clock: The name of the Clocks function that returns the frequency of the I2S clock input
-/// to this SPI peripheral (i2s_cl, i2s_apb1_clk, or i2s2_apb_clk)
-macro_rules! i2s {
-    ($SPI:ty, $I2s:ident, $clock:ident) => {
-        pub type $I2s<PINS> = I2s<$SPI, PINS>;
-
-        impl Instance for $SPI {}
-
-        impl I2sFreq for $SPI {
-            fn i2s_freq(clocks: &Clocks) -> Hertz {
-                clocks
-                    .$clock()
-                    .expect("I2S clock input for SPI not enabled")
-            }
-        }
-
-        #[cfg(feature = "stm32_i2s_v12x")]
-        unsafe impl<PINS> stm32_i2s_v12x::I2sPeripheral for I2s<$SPI, PINS> {
-            const REGISTERS: *const () = <$SPI>::ptr() as *const _;
-            fn i2s_freq(&self) -> u32 {
-                self.input_clock.raw()
-            }
-            fn ws_level(&self) -> stm32_i2s_v12x::WsLevel {
-                todo!()
-            }
-        }
-    };
-}
-
 /// Trait to build an [`I2s`] object from SPI peripheral, pins and clocks
 pub trait I2sExt: Sized + Instance {
     fn i2s<WS, CK, MCLK, SD>(
@@ -195,6 +160,22 @@ impl<SPI: Instance> I2sExt for SPI {
         (WS, CK, MCLK, SD): Pins<Self>,
     {
         I2s::new(self, pins, clocks)
+    }
+}
+
+/// An I2s wrapper around an SPI object and pins
+pub struct I2s<I, PINS> {
+    spi: I,
+    pins: PINS,
+    /// Frequency of clock input to this peripheral from the I2S PLL or related source
+    input_clock: Hertz,
+}
+
+impl<I, PINS> I2s<I, PINS> {
+    /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
+    /// I2S PLL or similar source
+    pub fn input_clock(&self) -> Hertz {
+        self.input_clock
     }
 }
 
@@ -241,6 +222,41 @@ where
             (self.pins.0, self.pins.1, self.pins.2, self.pins.3),
         )
     }
+}
+
+/// Implements stm32_i2s_v12x::I2sPeripheral for I2s<$SPIX, _> and creates an I2s::$spix function
+/// to create and enable the peripheral
+///
+/// $SPIX: The fully-capitalized name of the SPI peripheral (example: SPI1)
+/// $i2sx: The lowercase I2S name of the peripheral (example: i2s1). This is the name of the
+/// function that creates an I2s and enables the peripheral clock.
+/// $clock: The name of the Clocks function that returns the frequency of the I2S clock input
+/// to this SPI peripheral (i2s_cl, i2s_apb1_clk, or i2s2_apb_clk)
+macro_rules! i2s {
+    ($SPI:ty, $I2s:ident, $clock:ident) => {
+        pub type $I2s<PINS> = I2s<$SPI, PINS>;
+
+        impl Instance for $SPI {}
+
+        impl I2sFreq for $SPI {
+            fn i2s_freq(clocks: &Clocks) -> Hertz {
+                clocks
+                    .$clock()
+                    .expect("I2S clock input for SPI not enabled")
+            }
+        }
+
+        #[cfg(feature = "stm32_i2s_v12x")]
+        unsafe impl<PINS> stm32_i2s_v12x::I2sPeripheral for I2s<$SPI, PINS> {
+            const REGISTERS: *const () = <$SPI>::ptr() as *const _;
+            fn i2s_freq(&self) -> u32 {
+                self.input_clock.raw()
+            }
+            fn ws_level(&self) -> stm32_i2s_v12x::WsLevel {
+                todo!()
+            }
+        }
+    };
 }
 
 // Actually define the SPI instances that can be used for I2S
@@ -306,22 +322,6 @@ i2s!(pac::SPI4, I2s4, i2s_apb2_clk);
 i2s!(pac::SPI5, I2s5, i2s_clk);
 #[cfg(any(feature = "stm32f412", feature = "stm32f413", feature = "stm32f423"))]
 i2s!(pac::SPI5, I2s5, i2s_apb2_clk);
-
-/// An I2s wrapper around an SPI object and pins
-pub struct I2s<I, PINS> {
-    spi: I,
-    pins: PINS,
-    /// Frequency of clock input to this peripheral from the I2S PLL or related source
-    input_clock: Hertz,
-}
-
-impl<I, PINS> I2s<I, PINS> {
-    /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
-    /// I2S PLL or similar source
-    pub fn input_clock(&self) -> Hertz {
-        self.input_clock
-    }
-}
 
 // DMA support: reuse existing mappings for SPI
 #[cfg(feature = "stm32_i2s_v12x")]
