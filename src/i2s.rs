@@ -109,17 +109,14 @@ pub trait WsPin: Sealed {
     fn is_low(&self) -> bool;
 }
 
-impl<const WSP: char, const WSN: u8, const WSA: u8> Sealed for Pin<WSP, WSN, Alternate<WSA>>
-where
-    Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
-    pac::SPI2: Instance,
+impl<const WSP: char, const WSN: u8, const WSA: u8> Sealed for Pin<WSP, WSN, Alternate<WSA>> where
+    Self: PinA<Ws, pac::SPI2, A = Const<WSA>>
 {
 }
 
 impl<const WSP: char, const WSN: u8, const WSA: u8> WsPin for Pin<WSP, WSN, Alternate<WSA>>
 where
     Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
-    pac::SPI2: Instance,
 {
     fn is_high(&self) -> bool {
         // I don't want to alter gpio hal so I pretend an Input pin state to get the level
