@@ -171,14 +171,8 @@ pub struct I2s<I, PINS> {
     input_clock: Hertz,
 }
 
-impl<I, PINS> I2s<I, PINS> {
-    /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
-    /// I2S PLL or similar source
-    pub fn input_clock(&self) -> Hertz {
-        self.input_clock
-    }
-}
-
+// Note: for API documenting reason, it's better to keep `(WS, CK, MCLK, SD)` for ctor and dtor
+// than replacing by `PINS`
 impl<SPI, WS, CK, MCLK, SD> I2s<SPI, (WS, CK, MCLK, SD)>
 where
     SPI: Instance,
@@ -221,6 +215,20 @@ where
             self.spi,
             (self.pins.0, self.pins.1, self.pins.2, self.pins.3),
         )
+    }
+}
+
+impl<SPI, PINS: Pins<SPI>> I2s<SPI, PINS> {
+    pub fn ws_pin(&mut self) -> &mut PINS::WsPin {
+        self.pins.ws_pin()
+    }
+}
+
+impl<I, PINS> I2s<I, PINS> {
+    /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
+    /// I2S PLL or similar source
+    pub fn input_clock(&self) -> Hertz {
+        self.input_clock
     }
 }
 
