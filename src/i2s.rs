@@ -93,17 +93,36 @@ where
     }
 }
 
-pub trait WsPin {
+mod sealed {
+    pub trait Sealed {}
+}
+use sealed::Sealed;
+
+/// Trait for Pin carrying a WS signal. Allow to read this signal.
+///
+/// # Side effects
+///
+/// This trait also allow to read a NSS pin since it's exactly the same alternate mode. Not harmfull but
+/// probably meaningless.
+pub trait WsPin: Sealed {
     /// Get the signal level on a WS pin on i2s alternate mode.
     fn ws_level(&self) -> WsLevel;
 }
 
+impl<const WSP: char, const WSN: u8, const WSA: u8> Sealed for Pin<WSP, WSN, Alternate<WSA>>
+where
+    Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
+    pac::SPI2: Instance,
+{
+}
+
 impl<const WSP: char, const WSN: u8, const WSA: u8> WsPin for Pin<WSP, WSN, Alternate<WSA>>
 where
-    Self: PinA<Ws, pac::SPI2>,
+    Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
+    pac::SPI2: Instance,
 {
     fn ws_level(&self) -> WsLevel {
-        // ugly, pretend beeing Input pin to get the level
+        // I don't want to alter gpio hal so I pretend an Input pin state to get the level
         let is_low = unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_low() };
         match is_low {
             true => WsLevel::Low,
@@ -112,8 +131,10 @@ where
     }
 }
 
+/// Trait for SPI peripheral with i2s capability.
 pub trait Instance: I2sFreq + rcc::Enable + rcc::Reset {}
 
+/// Trait to get I2s frequency at SPI peripheral input.
 pub trait I2sFreq {
     fn i2s_freq(clocks: &Clocks) -> Hertz;
 }
@@ -153,6 +174,7 @@ macro_rules! i2s {
     };
 }
 
+/// Trait to build an [`I2s`] object from SPI peripheral, pins and clocks
 pub trait I2sExt: Sized + Instance {
     fn i2s<WS, CK, MCLK, SD>(
         self,
