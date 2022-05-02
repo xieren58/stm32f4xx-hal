@@ -41,7 +41,7 @@ mod pins {
     /// NoMasterClock can be used instead of the master clock pin.
     pub trait Pins<SPI> {
         /// WS pin in I2S alternate type state.
-        type WsPin;
+        type WsPin: super::WsPin;
         fn set_alt_mode(&mut self);
         fn restore_mode(&mut self);
         /// Get WS pin.
@@ -65,7 +65,7 @@ impl<
         const SDA: u8,
     > Pins<SPI> for (Pin<WSP, WSN, Alternate<WSA, PushPull>>, CK, MCLK, SD)
 where
-    Pin<WSP, WSN, Alternate<WSA, PushPull>>: PinA<Ws, SPI>,
+    Pin<WSP, WSN, Alternate<WSA, PushPull>>: WsPin,
     CK: PinA<Ck, SPI, A = Const<CKA>> + SetAlternate<CKA, PushPull>,
     MCLK: PinA<Mck, SPI, A = Const<MCLKA>> + SetAlternate<MCLKA, PushPull>,
     SD: PinA<Sd, SPI, A = Const<SDA>> + SetAlternate<SDA, PushPull>,
@@ -199,15 +199,6 @@ where
     }
 }
 
-impl<SPI, PINS: Pins<SPI>> I2s<SPI, PINS> {
-    pub fn ws_pin(&self) -> &PINS::WsPin {
-        self.pins.ws_pin()
-    }
-    pub fn ws_pin_mut(&mut self) -> &mut PINS::WsPin {
-        self.pins.ws_pin_mut()
-    }
-}
-
 impl<I, PINS> I2s<I, PINS> {
     /// Returns the frequency of the clock signal that the SPI peripheral is receiving from the
     /// I2S PLL or similar source
@@ -239,13 +230,17 @@ macro_rules! i2s {
         }
 
         #[cfg(feature = "stm32_i2s_v12x")]
-        unsafe impl<PINS> stm32_i2s_v12x::I2sPeripheral for I2s<$SPI, PINS> {
+        unsafe impl<PINS: Pins<$SPI>> stm32_i2s_v12x::I2sPeripheral for I2s<$SPI, PINS> {
             const REGISTERS: *const () = <$SPI>::ptr() as *const _;
             fn i2s_freq(&self) -> u32 {
                 self.input_clock.raw()
             }
             fn ws_level(&self) -> stm32_i2s_v12x::WsLevel {
-                todo!()
+                if PINS::ws_pin(&self.pins).is_low() {
+                    stm32_i2s_v12x::WsLevel::Low
+                } else {
+                    stm32_i2s_v12x::WsLevel::High
+                }
             }
         }
     };
