@@ -41,7 +41,7 @@ mod pins {
     /// NoMasterClock can be used instead of the master clock pin.
     pub trait Pins<SPI> {
         /// WS pin in I2S alternate type state.
-        type WsPin: super::WsPin;
+        type WsPin: super::WsPin<SPI>;
         fn set_alt_mode(&mut self);
         fn restore_mode(&mut self);
         /// Get WS pin.
@@ -65,7 +65,7 @@ impl<
         const SDA: u8,
     > Pins<SPI> for (Pin<WSP, WSN, Alternate<WSA, PushPull>>, CK, MCLK, SD)
 where
-    Pin<WSP, WSN, Alternate<WSA, PushPull>>: WsPin,
+    Pin<WSP, WSN, Alternate<WSA, PushPull>>: WsPin<SPI>,
     CK: PinA<Ck, SPI, A = Const<CKA>> + SetAlternate<CKA, PushPull>,
     MCLK: PinA<Mck, SPI, A = Const<MCLKA>> + SetAlternate<MCLKA, PushPull>,
     SD: PinA<Sd, SPI, A = Const<SDA>> + SetAlternate<SDA, PushPull>,
@@ -95,7 +95,7 @@ where
 ///
 /// This trait also allow to read a NSS pin since it's exactly the same alternate mode. Not harmfull but
 /// probably meaningless.
-pub trait WsPin: crate::Sealed {
+pub trait WsPin<SPI>: crate::Sealed {
     /// Get the signal level on a WS pin on i2s alternate mode.
     fn is_high(&self) -> bool {
         !self.is_low()
@@ -103,9 +103,9 @@ pub trait WsPin: crate::Sealed {
     fn is_low(&self) -> bool;
 }
 
-impl<const WSP: char, const WSN: u8, const WSA: u8> WsPin for Pin<WSP, WSN, Alternate<WSA>>
+impl<SPI, const WSP: char, const WSN: u8, const WSA: u8> WsPin<SPI> for Pin<WSP, WSN, Alternate<WSA>>
 where
-    Self: PinA<Ws, pac::SPI2>,
+    Self: PinA<Ws, SPI>,
 {
     fn is_low(&self) -> bool {
         self._is_low()
