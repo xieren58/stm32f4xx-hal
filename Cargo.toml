@@ -57,7 +57,8 @@ package = "embedded-hal"
 
 [dependencies.stm32_i2s_v12x]
 version = "0.2.0"
-path = "../stm32_i2s"
+git = "https://github.com/YruamaLairba/stm32_i2s"
+branch = "rework"
 optional = true
 
 [dev-dependencies]

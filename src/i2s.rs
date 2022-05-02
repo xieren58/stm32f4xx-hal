@@ -2,7 +2,7 @@
 //!
 //! This module is only available if the `i2s` feature is enabled.
 
-use crate::gpio::{Alternate, Const, Input, NoPin, Pin, PinA, PushPull, SetAlternate};
+use crate::gpio::{Alternate, Const, NoPin, Pin, PinA, PushPull, SetAlternate};
 use crate::pac::{self, RCC};
 use crate::rcc;
 use crate::{rcc::Clocks, spi};
@@ -56,7 +56,6 @@ impl<
         SPI,
         const WSP: char,
         const WSN: u8,
-        WSM,
         const WSA: u8,
         CK,
         const CKA: u8,
@@ -64,31 +63,29 @@ impl<
         const MCLKA: u8,
         SD,
         const SDA: u8,
-    > Pins<SPI> for (Pin<WSP, WSN, WSM>, CK, MCLK, SD)
+    > Pins<SPI> for (Pin<WSP, WSN, Alternate<WSA, PushPull>>, CK, MCLK, SD)
 where
-    Pin<WSP, WSN, WSM>: PinA<Ws, SPI, A = Const<WSA>> + SetAlternate<WSA, PushPull>,
+    Pin<WSP, WSN, Alternate<WSA, PushPull>>: PinA<Ws, SPI, A = Const<WSA>>,
     CK: PinA<Ck, SPI, A = Const<CKA>> + SetAlternate<CKA, PushPull>,
     MCLK: PinA<Mck, SPI, A = Const<MCLKA>> + SetAlternate<MCLKA, PushPull>,
     SD: PinA<Sd, SPI, A = Const<SDA>> + SetAlternate<SDA, PushPull>,
 {
     type WsPin = Pin<WSP, WSN, Alternate<WSA>>;
     fn set_alt_mode(&mut self) {
-        self.0.set_alt_mode();
         self.1.set_alt_mode();
         self.2.set_alt_mode();
         self.3.set_alt_mode();
     }
     fn restore_mode(&mut self) {
-        self.0.restore_mode();
         self.1.restore_mode();
         self.2.restore_mode();
         self.3.restore_mode();
     }
     fn ws_pin(&self) -> &Self::WsPin {
-        unsafe { &*(&self.0 as *const _ as *const Self::WsPin) }
+        &self.0
     }
     fn ws_pin_mut(&mut self) -> &mut Self::WsPin {
-        unsafe { &mut *(&mut self.0 as *mut _ as *mut Self::WsPin) }
+        &mut self.0
     }
 }
 
@@ -105,7 +102,9 @@ use sealed::Sealed;
 /// probably meaningless.
 pub trait WsPin: Sealed {
     /// Get the signal level on a WS pin on i2s alternate mode.
-    fn is_high(&self) -> bool;
+    fn is_high(&self) -> bool {
+        !self.is_low()
+    }
     fn is_low(&self) -> bool;
 }
 
@@ -118,13 +117,8 @@ impl<const WSP: char, const WSN: u8, const WSA: u8> WsPin for Pin<WSP, WSN, Alte
 where
     Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
 {
-    fn is_high(&self) -> bool {
-        // I don't want to alter gpio hal so I pretend an Input pin state to get the level
-        unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_high() }
-    }
     fn is_low(&self) -> bool {
-        // I don't want to alter gpio hal so I pretend an Input pin state to get the level
-        unsafe { (&*(self as *const _ as *const Pin<WSP, WSN, Input>)).is_low() }
+        self._is_low()
     }
 }
 

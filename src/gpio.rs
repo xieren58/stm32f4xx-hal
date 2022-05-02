@@ -369,7 +369,7 @@ impl<const P: char, const N: u8, MODE> Pin<P, N, MODE> {
         unsafe { (*Gpio::<P>::ptr()).odr.read().bits() & (1 << N) == 0 }
     }
     #[inline(always)]
-    fn _is_low(&self) -> bool {
+    pub(crate) fn _is_low(&self) -> bool {
         // NOTE(unsafe) atomic read with no side effects
         unsafe { (*Gpio::<P>::ptr()).idr.read().bits() & (1 << N) == 0 }
     }
