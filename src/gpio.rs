@@ -1850,3 +1850,5 @@ impl<const P: char> Gpio<P> {
         }
     }
 }
+
+impl<const P: char, const N: u8, MODE> crate::Sealed for Pin<P, N, MODE> { }

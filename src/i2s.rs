@@ -65,7 +65,7 @@ impl<
         const SDA: u8,
     > Pins<SPI> for (Pin<WSP, WSN, Alternate<WSA, PushPull>>, CK, MCLK, SD)
 where
-    Pin<WSP, WSN, Alternate<WSA, PushPull>>: PinA<Ws, SPI, A = Const<WSA>>,
+    Pin<WSP, WSN, Alternate<WSA, PushPull>>: PinA<Ws, SPI>,
     CK: PinA<Ck, SPI, A = Const<CKA>> + SetAlternate<CKA, PushPull>,
     MCLK: PinA<Mck, SPI, A = Const<MCLKA>> + SetAlternate<MCLKA, PushPull>,
     SD: PinA<Sd, SPI, A = Const<SDA>> + SetAlternate<SDA, PushPull>,
@@ -89,18 +89,13 @@ where
     }
 }
 
-mod sealed {
-    pub trait Sealed {}
-}
-use sealed::Sealed;
-
 /// Trait for Pin carrying a WS signal. Allow to read this signal.
 ///
 /// # Side effects
 ///
 /// This trait also allow to read a NSS pin since it's exactly the same alternate mode. Not harmfull but
 /// probably meaningless.
-pub trait WsPin: Sealed {
+pub trait WsPin: crate::Sealed {
     /// Get the signal level on a WS pin on i2s alternate mode.
     fn is_high(&self) -> bool {
         !self.is_low()
@@ -108,14 +103,9 @@ pub trait WsPin: Sealed {
     fn is_low(&self) -> bool;
 }
 
-impl<const WSP: char, const WSN: u8, const WSA: u8> Sealed for Pin<WSP, WSN, Alternate<WSA>> where
-    Self: PinA<Ws, pac::SPI2, A = Const<WSA>>
-{
-}
-
 impl<const WSP: char, const WSN: u8, const WSA: u8> WsPin for Pin<WSP, WSN, Alternate<WSA>>
 where
-    Self: PinA<Ws, pac::SPI2, A = Const<WSA>>,
+    Self: PinA<Ws, pac::SPI2>,
 {
     fn is_low(&self) -> bool {
         self._is_low()
