@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+- Add `SysMonoTimerExt` helper trait [#497]
+
+[#497]: https://github.com/stm32-rs/stm32f4xx-hal/pull/497
+
 ## [v0.13.2] - 2022-05-16
 
 ### Fixed
